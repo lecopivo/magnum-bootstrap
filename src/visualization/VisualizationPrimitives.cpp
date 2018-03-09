@@ -33,14 +33,6 @@ void DrawableMesh::bindBuffers(std::vector<VertexData> const &data) {
 void DrawableMesh::draw(const Matrix4 &       transformationMatrix,
                         SceneGraph::Camera3D &camera) {
 
-  if (std::holds_alternative<Shaders::VertexColor3D>(_shader)) {
-    auto &s = std::get<Shaders::VertexColor3D>(_shader);
-
-    s.setTransformationProjectionMatrix(camera.projectionMatrix() *
-                                        transformationMatrix);
-    _mesh.draw(s);
-  }
-
   if (std::holds_alternative<Shaders::Phong>(_shader)) {
     auto &s = std::get<Shaders::Phong>(_shader);
 
@@ -49,6 +41,31 @@ void DrawableMesh::draw(const Matrix4 &       transformationMatrix,
         .setNormalMatrix(transformationMatrix.rotationScaling())
         .setProjectionMatrix(camera.projectionMatrix());
 #warning rotationScaling() should be changed to rotation()
+    _mesh.draw(s);
+  }
+
+  if (std::holds_alternative<Shaders::VertexColor3D>(_shader)) {
+    auto &s = std::get<Shaders::VertexColor3D>(_shader);
+
+    s.setTransformationProjectionMatrix(camera.projectionMatrix() *
+                                        transformationMatrix);
+    _mesh.draw(s);
+  }
+
+  if (std::holds_alternative<Shaders::Flat3D>(_shader)) {
+    auto &s = std::get<Shaders::Flat3D>(_shader);
+
+    s.setTransformationProjectionMatrix(camera.projectionMatrix() *
+                                        transformationMatrix);
+    _mesh.draw(s);
+  }
+
+  if (std::holds_alternative<Shaders::MeshVisualizer>(_shader)) {
+    auto &s = std::get<Shaders::MeshVisualizer>(_shader);
+
+    s.setTransformationProjectionMatrix(camera.projectionMatrix() *
+                                        transformationMatrix)
+        .setViewportSize(Vector2{defaultFramebuffer.viewport().size()});
     _mesh.draw(s);
   }
 }
@@ -129,8 +146,9 @@ DrawableSphere::DrawableSphere(Object3D *                   parent,
 
   _data.resize(meshData.positions(0).size());
   for (size_t i = 0; i < meshData.positions(0).size(); i++) {
-    _data[i].position = meshData.positions(0)[i];
-    _data[i].normal   = meshData.normals(0)[i];
+    _data[i].position = Matrix4::rotationX(Rad{M_PI / 2})
+                            .transformPoint(meshData.positions(0)[i]);
+    _data[i].normal = meshData.normals(0)[i];
   }
 
   _indices = meshData.indices();
@@ -138,7 +156,8 @@ DrawableSphere::DrawableSphere(Object3D *                   parent,
   bindBuffers(_data);
 }
 
-// DrawableLine::DrawableLine(Object3D *parent, SceneGraph::DrawableGroup3D *group,
+// DrawableLine::DrawableLine(Object3D *parent, SceneGraph::DrawableGroup3D
+// *group,
 //                            int n)
 //     : Object3D{parent}, SceneGraph::Drawable3D{*this, group} {
 //   resize(n);

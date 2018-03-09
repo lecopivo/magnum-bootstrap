@@ -30,8 +30,8 @@
 using namespace Magnum;
 using namespace Magnum::Math::Literals;
 
-typedef SceneGraph::Object<SceneGraph::MatrixTransformation3D> Object3D;
-typedef SceneGraph::Scene<SceneGraph::MatrixTransformation3D>  Scene3D;
+using Object3D = SceneGraph::Object<SceneGraph::MatrixTransformation3D>;
+using Scene3D  = SceneGraph::Scene<SceneGraph::MatrixTransformation3D>;
 
 class MyApplication : public Platform::Application {
 public:
@@ -57,8 +57,6 @@ private:
 
   /*
    * Sends a ray from a camera pixel
-   *
-   *
    *
    * \param pixel pixel to send a ray from
    * \return direction vector and camera position(in that order)
@@ -133,6 +131,24 @@ void MyApplication::drawGui() {
     auto &shader    = std::get<Shaders::Phong>(sphere->_shader);
     shader.setDiffuseColor(Color4{0.4f, 0.4f, 0.8f, 1.f})
         .setAmbientColor(Color3{0.25f, 0.2f, 0.23f});
+  }
+
+  if (ImGui::Button("Flat shader")) {
+    sphere->_shader = Shaders::Flat3D{};
+    auto &shader    = std::get<Shaders::Flat3D>(sphere->_shader);
+    shader.setColor(Color4{0.4f, 0.4f, 0.8f, 1.f});
+
+    sphere->_shader = Shaders::Flat3D{};
+  }
+
+  if (ImGui::Button("MeshVisualizer shader")) {
+    sphere->_shader =
+        Shaders::MeshVisualizer{Shaders::MeshVisualizer::Flag::Wireframe};
+    auto &s = std::get<Shaders::MeshVisualizer>(sphere->_shader);
+    s.setColor(Color4{0.3f, 0.3f, 0.3f, 1.f});
+    s.setLabel("mesh");
+    s.setWireframeColor(Color4{1.f, 1.f, 1.f, 1.f});
+    s.setWireframeWidth(1.f);
   }
 
   _gui.drawFrame();
@@ -244,7 +260,7 @@ void MyApplication::mouseZoom(MouseMoveEvent const &event, Vector2 delta) {
   auto dir =
       _cameraObject->transformation().transformVector(Vector3{0.0, 0.0, 1.0});
 
-  _cameraObject->translate(10.0f * delta.y() * dir);
+  _cameraObject->translate(-10.0f * delta.y() * dir);
 }
 
 void MyApplication::mousePan(MouseMoveEvent const &event, Vector2 delta) {}

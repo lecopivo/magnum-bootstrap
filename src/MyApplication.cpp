@@ -23,6 +23,8 @@
 #include <MagnumImGui/MagnumImGui.h>
 #include <MagnumImGui/imgui.h>
 
+#include <algorithm>
+#include <iostream>
 #include <tuple>
 
 #include "visualization/VisualizationPrimitives.h"
@@ -32,6 +34,24 @@ using namespace Magnum::Math::Literals;
 
 using Object3D = SceneGraph::Object<SceneGraph::MatrixTransformation3D>;
 using Scene3D  = SceneGraph::Scene<SceneGraph::MatrixTransformation3D>;
+
+constexpr float pi = 3.14159265359f;
+
+struct CameraParameters {
+  Vector3 target         = {0.f, 0.f, 0.f};
+  float   longitude      = pi / 4;
+  float   latitude       = pi / 4;
+  float   targetDistance = 4.0f;
+
+  Matrix4 getCameraTransformation() {
+    Matrix4 trans = Matrix4::translation(target) *
+                    Matrix4::rotationZ(Rad{longitude}) *
+                    Matrix4::rotationX(-Rad{latitude}) *
+                    Matrix4::translation(Vector3{0.f, -targetDistance, 0.f}) *
+                    Matrix4::rotationX(Rad{pi / 2});
+    return trans;
+  }
+};
 
 class MyApplication : public Platform::Application {
 public:
@@ -67,9 +87,9 @@ private:
   Object3D *                  _cameraObject;
   SceneGraph::Camera3D *      _camera;
   SceneGraph::DrawableGroup3D _drawables;
+  CameraParameters            _cameraParams;
 
   Vector2i _previousMousePosition;
-  Vector3  _mousePlanePosition[2];
 
   MagnumImGui _gui;
 
@@ -92,7 +112,7 @@ MyApplication::MyApplication(const Arguments &arguments)
 
   /* Configure camera */
   _cameraObject = new Object3D{&_scene};
-  _cameraObject->translate(Vector3::zAxis(4.0f)).rotateX(Rad{M_PI / 4});
+  _cameraObject->setTransformation(_cameraParams.getCameraTransformation());
   _camera = new SceneGraph::Camera3D{*_cameraObject};
   viewportEvent(defaultFramebuffer.viewport().size()); // set up camera
 
@@ -102,7 +122,7 @@ MyApplication::MyApplication(const Arguments &arguments)
   // line   = (new DrawableLine(&_scene, &_drawables, 10));
 
   sphere->setVertices([](int i, DrawableMesh::VertexData &v) {
-    v.color = Color4::fromHsv(Rad{2.0f * M_PI * i / 100.0f}, 1.0, 1.0);
+    v.color = Color4::fromHsv(Rad{2.0f * pi * i / 100.0f}, 1.0, 1.0);
   });
 }
 
@@ -171,6 +191,11 @@ void MyApplication::keyPressEvent(KeyEvent &event) {
 
   if (event.key() == KeyEvent::Key::Esc) {
     exit();
+  }
+
+  if (event.key() == KeyEvent::Key::F) {
+    _cameraParams.target = Vector3{0.f, 0.f, 0.f};
+    _cameraObject->setTransformation(_cameraParams.getCameraTransformation());
   }
 
   redraw();
@@ -247,23 +272,25 @@ void MyApplication::textInputEvent(TextInputEvent &event) {
 
 void MyApplication::mouseRotation(MouseMoveEvent const &event, Vector2 delta) {
 
-  auto camPos =
-      _cameraObject->transformation().transformPoint(Vector3{0.0, 0.0, 0.0});
+  _cameraParams.longitude -= 3.0f * delta.x();
+  _cameraParams.latitude += 3.0f * delta.y();
 
-  auto axis = cross(Vector3{0.f, 0.f, 1.f}, camPos.normalized()).normalized();
-
-  _cameraObject->rotate(Rad{-3.0f * delta.y()}, axis);
-  _cameraObject->rotateZ(Rad{-3.0f * delta.x()});
+  _cameraParams.latitude = std::clamp(_cameraParams.latitude, -pi / 2, pi / 2);
+  _cameraObject->setTransformation(_cameraParams.getCameraTransformation());
 }
 
 void MyApplication::mouseZoom(MouseMoveEvent const &event, Vector2 delta) {
-  auto dir =
-      _cameraObject->transformation().transformVector(Vector3{0.0, 0.0, 1.0});
-
-  _cameraObject->translate(-10.0f * delta.y() * dir);
+  _cameraParams.targetDistance -= 10.0f * delta.y();
+  _cameraObject->setTransformation(_cameraParams.getCameraTransformation());
 }
 
-void MyApplication::mousePan(MouseMoveEvent const &event, Vector2 delta) {}
+void MyApplication::mousePan(MouseMoveEvent const &event, Vector2 delta) {
+
+  auto trans = _cameraParams.getCameraTransformation();
+  _cameraParams.target +=
+      trans.transformVector(Vector3{-4.f * delta.x(), 4.f * delta.y(), 0.f});
+  _cameraObject->setTransformation(_cameraParams.getCameraTransformation());
+}
 
 std::tuple<Vector3, Vector3>
 MyApplication::cameraRayCast(Vector2i pixel) const {
